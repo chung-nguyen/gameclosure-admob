@@ -1,0 +1,17 @@
+{
+  "name": "devkit-admob",
+  "version": "1.0.0",
+  "devkit": {
+    "clientPaths": {
+      "admob": "js"
+    },
+    "extensions": {
+      "android": "android",
+      "ios": "ios"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chung-nguyen/gameclosure-admob.git"
+  }
+}
