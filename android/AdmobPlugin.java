@@ -36,6 +36,9 @@ public class AdmobPlugin implements IPlugin {
 	private InterstitialAd mInterstitial = null;
 	private AdView mAdView = null;
 	private int mAdViewGravity = Gravity.CENTER;
+    private Object mAdViewLock = new Object();
+    private boolean mIsAdViewVisibile = false;
+    private boolean mShowAdView = false;
 
 	public void AdmobPlugin() {}
 
@@ -75,6 +78,7 @@ public class AdmobPlugin implements IPlugin {
 
 	public void showAdView(String jsonData) {
 		logger.log(TAG, "Creating ad view");
+        mShowAdView = true;
 
 		JSONObject jObject = null;
 		try {
@@ -105,7 +109,10 @@ public class AdmobPlugin implements IPlugin {
 							public void onAdLoaded() {
 								logger.log(TAG, "ad loaded");
 								logger.log(TAG, "Trying to show ad");
-								addAdViewToRoot();
+                                
+                                if (mShowAdView) {
+								    addAdViewToRoot();
+                                }
 							}
 
 							@Override
@@ -147,20 +154,32 @@ public class AdmobPlugin implements IPlugin {
 
 	private void addAdViewToRoot() {
 
-		/// Set the initial frame
-		FrameLayout.LayoutParams initialFrm = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT,
-		FrameLayout.LayoutParams.WRAP_CONTENT,
-		mAdViewGravity);
+        synchronized (mAdViewLock) {
+            if (!mIsAdViewVisibile) {            
+                mIsAdViewVisibile = true;
 
-		final ViewGroup windowContentView = (ViewGroup) mActivity.getWindow().getDecorView().getRootView().findViewById(android.R.id.content);
-		windowContentView.addView(mAdView, initialFrm);
-		windowContentView.requestLayout();
+                /// Set the initial frame
+                FrameLayout.LayoutParams initialFrm = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                mAdViewGravity);
+
+                final ViewGroup windowContentView = (ViewGroup) mActivity.getWindow().getDecorView().getRootView().findViewById(android.R.id.content);
+                windowContentView.addView(mAdView, initialFrm);
+                windowContentView.requestLayout();
+            }
+        }
 	}
 
 	private void removeAdViewFromRoot() {
-		final ViewGroup windowContentView = (ViewGroup) mActivity.getWindow().getDecorView().getRootView().findViewById(android.R.id.content);
-		windowContentView.removeView(mAdView);
-		windowContentView.requestLayout();
+        synchronized (mAdViewLock) {
+            if (mIsAdViewVisibile) {
+                mIsAdViewVisibile = false;
+                
+                final ViewGroup windowContentView = (ViewGroup) mActivity.getWindow().getDecorView().getRootView().findViewById(android.R.id.content);
+                windowContentView.removeView(mAdView);
+                windowContentView.requestLayout();
+            }
+        }
 	}
 
 	public void loadAdView(String jsonData) {
@@ -179,6 +198,8 @@ public class AdmobPlugin implements IPlugin {
 	}
 
 	public void hideAdView(String jsonData) {
+        mShowAdView = false;
+        
 		if (mAdView != null) {
 			mActivity.runOnUiThread(new Runnable() {
 				public void run() {
