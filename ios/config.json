@@ -1,8 +1,8 @@
 {
-	"code": [
+    "code": [
 		"Admob.h",
 		"Admob.mm"
 	],
-	"frameworks": [
+    "frameworks": [
 	]
 }
