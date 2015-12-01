@@ -39,6 +39,8 @@ public class AdmobPlugin implements IPlugin {
     private Object mAdViewLock = new Object();
     private boolean mIsAdViewVisibile = false;
     private boolean mShowAdView = false;
+	private boolean mInterstitialHasError = false;
+	private boolean mAdViewHasError = false;
 
 	public void AdmobPlugin() {}
 
@@ -75,6 +77,78 @@ public class AdmobPlugin implements IPlugin {
 	}
 
 	public void onBackPressed() {}
+	
+	public boolean hasInterstitialError() {
+		return mInterstitialHasError;
+	}
+	
+	public void showInterstitial(String jsonData) {
+		logger.log(TAG, "Showing interstitial view");
+		
+		mActivity.runOnUiThread(new Runnable() {
+			public void run() {
+				if (mInterstitial != null && mInterstitial.isLoaded())
+				{
+					logger.log(TAG, "Show succeed");
+					mInterstitial.show();
+				}
+			}
+		});
+	}
+	
+	public void loadInterstitial(String jsonData) {
+		logger.log(TAG, "Creating interstitial view");
+		mInterstitialHasError = false;
+        
+		JSONObject jObject = null;
+		try {
+			jObject = new JSONObject(jsonData);
+		} catch (Exception ex) {
+			logger.log(TAG, ex.toString());
+		}
+
+		final String adUnitId = getJsonString(jObject, "adUnitId");
+		
+		mActivity.runOnUiThread(new Runnable() {
+			public void run() {
+				try {
+					if (mInterstitial == null) {
+						
+						mInterstitial = new InterstitialAd(mActivity);
+       					mInterstitial.setAdUnitId(adUnitId);
+						   
+						mInterstitial.setAdListener(new AdListener() {
+							@Override
+							public void onAdClosed() {
+								AdRequest adRequest = new AdRequest.Builder()
+										.addTestDevice(AdRequest.DEVICE_ID_EMULATOR)
+										.build();
+						
+								mInterstitial.loadAd(adRequest);
+							}
+							
+							@Override
+							public void onAdFailedToLoad(int errorCode) {
+								logger.log(TAG, "no interstitial ad loaded");
+								
+								mInterstitialHasError = true;
+							}
+						});
+					}
+				
+					AdRequest adRequest = new AdRequest.Builder()
+							.addTestDevice(AdRequest.DEVICE_ID_EMULATOR)
+							.build();
+			
+					mInterstitial.loadAd(adRequest);
+					
+				} catch (Exception ex) {
+					logger.log(TAG, ex.toString());
+					mInterstitial = null;
+				}
+			}
+		});
+	}
 
 	public void showAdView(String jsonData) {
 		logger.log(TAG, "Creating ad view");
@@ -119,6 +193,7 @@ public class AdmobPlugin implements IPlugin {
 							public void onAdFailedToLoad(int errorCode) {
 								logger.log(TAG, "no ad loaded");
 								//logger.log(TAG, getErrorReason(errorCode));
+								mAdViewHasError = true;
 							}
 
 							@Override
@@ -139,6 +214,7 @@ public class AdmobPlugin implements IPlugin {
 						mAdView.setAdListener(adListener);
 
 					} catch (Exception ex) {
+						logger.log(TAG, ex.toString());
 						mAdView = null;
 					}
 				} else {
@@ -192,6 +268,8 @@ public class AdmobPlugin implements IPlugin {
 
 	private void loadAdView() {
 		if (mAdView != null) {
+			mAdViewHasError = false;
+			
 			AdRequest adRequest = new AdRequest.Builder().addTestDevice(AdRequest.DEVICE_ID_EMULATOR).build();
 			mAdView.loadAd(adRequest);
 		}
