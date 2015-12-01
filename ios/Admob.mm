@@ -32,6 +32,52 @@
     }
 }
 
+- (void) showInterstitial:(NSDictionary *)jsonObject {
+    if (self.interstitial != nil && [self.interstitial isReady]) {
+        [self.interstitial presentFromRootViewController: self.appDelegate.tealeafViewController];
+    }
+}
+
+- (void) loadInterstitial:(NSDictionary *)jsonObject {
+    @try {
+        NSString *adUnitId = jsonObject[@"adUnitId"];
+        if (adUnitId == nil)
+        {
+            adUnitId = @"";
+        }
+        
+        if (self.interstitial == nil) 
+        {
+            self.interstitial = [[GADInterstitial alloc] initWithAdUnitID:adUnitId];
+            self.interstitial.delegate = self;
+        }
+        
+        GADRequest *request = [GADRequest request];
+        request.testDevices = @[kGADSimulatorID];
+        [self.interstitial loadRequest:request];
+    }
+    @catch (NSException *exception) {
+        NSLog(@"{admob} Failure during interstitial: %@", exception);
+        self.interstitial = nil;
+    }
+}
+
+/// Called when an interstitial ad request failed.
+- (void)interstitial:(GADInterstitial *)ad didFailToReceiveAdWithError:(GADRequestError *)error {
+    NSLog(@"interstitialDidFailToReceiveAdWithError: %@", [error localizedDescription]);
+}
+
+- (void)interstitialDidDismissScreen:(GADInterstitial *)interstitial {
+    GADInterstitial *newInterstitial = [[GADInterstitial alloc] initWithAdUnitID:self.interstitial.adUnitID];
+    newInterstitial.delegate = self;
+    
+    GADRequest *request = [GADRequest request];
+    request.testDevices = @[kGADSimulatorID];
+    [newInterstitial loadRequest:request];
+    
+    self.interstitial = newInterstitial;
+}
+
 - (void) showAdView:(NSDictionary *)jsonObject {
     @try {
         NSString *adUnitId = jsonObject[@"adUnitId"];
@@ -40,11 +86,14 @@
             adUnitId = @"";
         }
         
+        self.bannerHorizontalAlign = jsonObject[@"horizontalAlign"];
+        self.bannerVerticalAlign = jsonObject[@"verticalAlign"];
+        
         NSLog(@"{admob} Showing Adview: %@", adUnitId);
         
         if ([self bannerView] == nil)
         {
-            self.bannerView = [[GADBannerView alloc] initWithAdSize: kGADAdSizeSmartBannerPortrait];
+            self.bannerView = [[GADBannerView alloc] initWithAdSize: [AdmobPlugin parseJSonBannerSize:jsonObject key: @"adSize"]];
             self.bannerView.delegate = self;
             
             [self.appDelegate.tealeafViewController.view addSubview:self.bannerView];
@@ -59,8 +108,27 @@
         }
     }
     @catch (NSException *exception) {
-        NSLog(@"{admob} Failure during interstitial: %@", exception);
+        NSLog(@"{admob} Failure during ad view: %@", exception);
+        self.bannerView = nil;
     }
+}
+
++ (GADAdSize) parseJSonBannerSize:(NSDictionary *)jObject key:(NSString *) key {
+    NSString *s = jObject[key];
+    if (s != nil) {
+        if ([s isEqualToString:@"banner"]) {
+            return kGADAdSizeBanner;
+        } else if ([s isEqualToString:@"large_banner"]) {
+            return kGADAdSizeLargeBanner;
+        } else if ([s isEqualToString:@"medium_rectangle"]) {
+            return kGADAdSizeMediumRectangle;
+        } else if ([s isEqualToString:@"full_banner"]) {
+            return kGADAdSizeFullBanner;
+        } else if ([s isEqualToString:@"leaderboard"]) {
+            return kGADAdSizeLeaderboard;
+        }
+    }
+    return kGADAdSizeSmartBannerPortrait;
 }
 
 - (void) loadAdView:(NSDictionary *)jsonObject {
@@ -87,11 +155,31 @@
 
 - (void)adViewDidReceiveAd:(GADBannerView *)bannerView {
     [UIView beginAnimations:@"BannerSlide" context:nil];
-    bannerView.frame = CGRectMake(0.0,
-                                  self.appDelegate.tealeafViewController.view.frame.size.height -
-                                  bannerView.frame.size.height,
-                                  bannerView.frame.size.width,
-                                  bannerView.frame.size.height);
+    
+    CGFloat viewWidth = self.appDelegate.tealeafViewController.view.frame.size.width;
+    CGFloat viewHeight = self.appDelegate.tealeafViewController.view.frame.size.height;
+    
+    CGFloat bannerWidth = bannerView.frame.size.width;
+    CGFloat bannerHeight = bannerView.frame.size.height;
+    
+    CGFloat x = 0.0f;
+    CGFloat y = 0.0f;
+    
+    if ([self.bannerHorizontalAlign isEqualToString:@"center"]) {
+        x = (viewWidth - bannerWidth) / 2;
+
+    } else if ([self.bannerHorizontalAlign isEqualToString:@"right"]) {
+        x = (viewWidth - bannerWidth);
+    }
+    
+    if ([self.bannerVerticalAlign isEqualToString:@"middle"]) {
+        y = (viewHeight - bannerHeight) / 2;
+        
+    } else if ([self.bannerVerticalAlign isEqualToString:@"bottom"]) {
+        y = viewHeight - bannerHeight;
+    }
+    
+    bannerView.frame = CGRectMake(x, y, bannerWidth, bannerHeight);
     [UIView commitAnimations];
 }
 
