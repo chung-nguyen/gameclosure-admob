@@ -66,3 +66,38 @@ To reload the banner in order to offer new advertisement, call `loadAdView`.
 ~~~
 loadAdView();
 ~~~
+
+## Example
+~~~
+import ui.TextView as TextView;
+import admob;
+
+exports = Class(GC.Application, function () {
+
+  this.initUI = function () {
+
+    this.tvHelloWorld = new TextView({
+		  superview: this.view,
+		  text: 'Hello admob!',
+		  color: 'white',
+		  x: 0,
+		  y: 400,
+		  width: this.view.style.width,
+		  height: 100
+    });
+    
+	admob.showAdView({
+		adUnitId: "ca-app-pub-8112894826901791/3036535668",
+		adSize: "smart_banner",
+		horizontalAlign: "center",
+		verticalAlign: "top",
+		reload: true,
+	});
+  };
+
+  this.launchUI = function () {
+
+  };
+
+});
+~~~
