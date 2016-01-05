@@ -4,7 +4,7 @@
 Install the module using using the standard devkit install process:
 
 ~~~
-devkit install https://github.com/gameclosure/gameclosure-admob.git#v2.0.1
+devkit install https://github.com/gameclosure/admob.git
 ~~~
 
 
@@ -57,4 +57,12 @@ The `horizontalAlign` can be either: left, center, right.
 
 The `verticalAlign` can be either: top, middle, bottom.
 
-To hide the banner ad, just call `hideAdView`. To reload the banner, call `loadAdView`.
+To hide the banner ad, just call `hideAdView`.
+~~~
+hideAdView();
+~~~
+
+To reload the banner in order to offer new advertisement, call `loadAdView`.
+~~~
+loadAdView();
+~~~
