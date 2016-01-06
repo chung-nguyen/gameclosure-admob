@@ -28,29 +28,57 @@ import com.google.android.gms.ads.AdSize;
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.AdListener;
 
+/**
+ * This is a Android interface that wraps Google Admob functionalities to use as a
+ * Gameclosure devkit plugin.
+ */
 public class AdmobPlugin implements IPlugin {
 
+	// The logging tag for debug
 	private String TAG = "{admob}";
 
+	// The devkit application activity
 	private Activity mActivity;
+	
+	// Interstitial advertisement object
 	private InterstitialAd mInterstitial = null;
+	private boolean mInterstitialHasError = false;
+	
+	// Banner advertisement object
 	private AdView mAdView = null;
 	private int mAdViewGravity = Gravity.CENTER;
     private Object mAdViewLock = new Object();
     private boolean mIsAdViewVisibile = false;
     private boolean mShowAdView = false;
-	private boolean mInterstitialHasError = false;
 	private boolean mAdViewHasError = false;
-
+	
+	/** 
+     * Class constructor.
+     */
 	public void AdmobPlugin() {}
 
-	public void onCreateApplication(Context applicationContext) {}
-
-
+	/**
+	 * Handle the event of plugin creation.
+	 *
+	 * @param activity The activity object of devkit application.
+	 * @param savedInstanceState The saved state of the activity instance.	 
+	 */
 	public void onCreate(Activity activity, Bundle savedInstanceState) {
 		mActivity = activity;
 	}
 
+	/**
+	 * Handle the event of application destruction.	 
+	 */
+	public void onDestroy() {
+		if (mAdView != null) {
+			mAdView.destroy();
+			mAdView = null;
+		}
+	}
+	
+	public void onCreateApplication(Context applicationContext) {}
+		
 	public void onResume() {}
 
 	public void onStart() {}
@@ -58,13 +86,6 @@ public class AdmobPlugin implements IPlugin {
 	public void onPause() {}
 
 	public void onStop() {}
-
-	public void onDestroy() {
-		if (mAdView != null) {
-			mAdView.destroy();
-			mAdView = null;
-		}
-	}
 
 	public void onNewIntent(Intent intent) {}
 
@@ -78,10 +99,20 @@ public class AdmobPlugin implements IPlugin {
 
 	public void onBackPressed() {}
 	
+	/**
+	 * Check if interstitial advertisement loading has error.
+	 *
+	 * @return The error result.
+	 */	
 	public boolean hasInterstitialError() {
 		return mInterstitialHasError;
 	}
 	
+	/**
+	 * Show the interstitial advertisement.
+	 *
+	 * @param jsonData Not used.
+	 */	
 	public void showInterstitial(String jsonData) {
 		logger.log(TAG, "Showing interstitial view");
 		
@@ -95,7 +126,12 @@ public class AdmobPlugin implements IPlugin {
 			}
 		});
 	}
-	
+
+	/**
+	 * Load the interstitial advertisement.
+	 *
+	 * @param jsonData Options for the advertisement.
+	 */		
 	public void loadInterstitial(String jsonData) {
 		logger.log(TAG, "Creating interstitial view");
 		mInterstitialHasError = false;
@@ -150,6 +186,14 @@ public class AdmobPlugin implements IPlugin {
 		});
 	}
 
+	/**
+	 * Show the banner advertisement.
+	 *
+	 * @param jsonData Options for the advertisement.
+	 *
+	 * @see #parseJSonBannerSize(JSONObject, String)
+	 * @see #parseJsonGravity(JSONObject, String)
+	 */	
 	public void showAdView(String jsonData) {
 		logger.log(TAG, "Creating ad view");
         mShowAdView = true;
@@ -228,6 +272,9 @@ public class AdmobPlugin implements IPlugin {
 		});
 	}
 
+	/**
+	 * Add the banner advertisement view to the root view of the devkit application.
+	 */	
 	private void addAdViewToRoot() {
 
         synchronized (mAdViewLock) {
@@ -246,6 +293,9 @@ public class AdmobPlugin implements IPlugin {
         }
 	}
 
+	/**
+	 * Remove the banner advertisement view from the root view of the devkit application.
+	 */	
 	private void removeAdViewFromRoot() {
         synchronized (mAdViewLock) {
             if (mIsAdViewVisibile) {
@@ -258,6 +308,11 @@ public class AdmobPlugin implements IPlugin {
         }
 	}
 
+	/**
+	 * Load the banner advertisement. To be called by javascript.
+	 *
+	 * @param jsonData Not used.
+	 */	
 	public void loadAdView(String jsonData) {
 		mActivity.runOnUiThread(new Runnable() {
 			public void run() {
@@ -266,6 +321,9 @@ public class AdmobPlugin implements IPlugin {
 		});
 	}
 
+	/**
+	 * Load the banner advertisement.	 
+	 */	
 	private void loadAdView() {
 		if (mAdView != null) {
 			mAdViewHasError = false;
@@ -275,6 +333,11 @@ public class AdmobPlugin implements IPlugin {
 		}
 	}
 
+	/**
+	 * Hide the banner advertisement.
+	 *
+	 * @param jsonData Not used.
+	 */	
 	public void hideAdView(String jsonData) {
         mShowAdView = false;
         
@@ -287,6 +350,14 @@ public class AdmobPlugin implements IPlugin {
 		}
 	}
 
+	/**
+	 * Parse the boolean value from javascript.
+	 *
+	 * @param jObject	The json object.
+	 * @param key		The value key.
+	 *
+	 * @return The java boolean value.
+	 */	
 	private static boolean getJsonBoolean(JSONObject jObject, String key) {
 		if (jObject == null) {
 			return false;
@@ -299,6 +370,14 @@ public class AdmobPlugin implements IPlugin {
 		return res;
 	}
 
+	/**
+	 * Parse the string value from javascript.
+	 *
+	 * @param jObject	The json object.
+	 * @param key		The value key.
+	 *
+	 * @return The java string value.
+	 */	
 	private static String getJsonString(JSONObject jObject, String key) {
 		if (jObject == null) {
 			return "";
@@ -311,6 +390,14 @@ public class AdmobPlugin implements IPlugin {
 		return res;
 	}
 
+	/**
+	 * Parse the Google Admob AdSize value from javascript string.
+	 *
+	 * @param jObject	The json object.
+	 * @param key		The value key.
+	 *
+	 * @return The AdSize value.
+	 */	
 	private static AdSize parseJSonBannerSize(JSONObject jObject, String key) {
 		String s = getJsonString(jObject, key);
 		if (s.equals("banner")) {
@@ -328,6 +415,14 @@ public class AdmobPlugin implements IPlugin {
 		return AdSize.SMART_BANNER;
 	}
 
+	/**
+	 * Parse the Android View Gravity value from javascript.
+	 *
+	 * @param jObject	The json object.
+	 * @param key		The value key.
+	 *
+	 * @return The Gravity constant value.
+	 */	
 	private static int parseJsonGravity(JSONObject jObject, String key) {
 		String s = getJsonString(jObject, key);
 		if (s.equals("left")) {

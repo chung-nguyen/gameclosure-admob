@@ -2,14 +2,18 @@
 
 @implementation AdmobPlugin
 
-// The plugin must call super dealloc.
+/*!
+	The plugin must call super dealloc. 
+*/
 - (void) dealloc {
     self.appDelegate = nil;
     
     [super dealloc];
 }
 
-// The plugin must call super init.
+/*!
+	The plugin must call super init.
+*/	
 - (id) init {
     self = [super init];
     if (!self) {
@@ -21,6 +25,12 @@
     return self;
 }
 
+/*!
+	Initialize the plugin.
+	
+	@param manifest
+	@param appDelegate
+*/	
 - (void) initializeWithManifest:(NSDictionary *)manifest appDelegate:(TeaLeafAppDelegate *)appDelegate {
     @try {
         NSLog(@"{admob} Initializing with manifest moPubID:");
@@ -32,12 +42,23 @@
     }
 }
 
+/*!
+	Show the interstitial advertisement.
+	
+	@param jsonObject
+*/	
 - (void) showInterstitial:(NSDictionary *)jsonObject {
     if (self.interstitial != nil && [self.interstitial isReady]) {
         [self.interstitial presentFromRootViewController: self.appDelegate.tealeafViewController];
     }
 }
 
+/*!
+	Load the interstitial advertisement.
+	
+	@param jsonObject
+		The advertisement options.
+*/	
 - (void) loadInterstitial:(NSDictionary *)jsonObject {
     @try {
         NSString *adUnitId = jsonObject[@"adUnitId"];
@@ -62,11 +83,16 @@
     }
 }
 
-/// Called when an interstitial ad request failed.
+/*!
+	Called when an interstitial advertisement request failed.
+*/
 - (void)interstitial:(GADInterstitial *)ad didFailToReceiveAdWithError:(GADRequestError *)error {
     NSLog(@"interstitialDidFailToReceiveAdWithError: %@", [error localizedDescription]);
 }
 
+/*!
+	Called when an interstitial advertisement dismiss the screen.
+*/
 - (void)interstitialDidDismissScreen:(GADInterstitial *)interstitial {
     GADInterstitial *newInterstitial = [[GADInterstitial alloc] initWithAdUnitID:self.interstitial.adUnitID];
     newInterstitial.delegate = self;
@@ -78,6 +104,12 @@
     self.interstitial = newInterstitial;
 }
 
+/*!
+	Show the banner advertisement.
+	
+	@param jsonObject
+		The advertisement options.
+*/	
 - (void) showAdView:(NSDictionary *)jsonObject {
     @try {
         NSString *adUnitId = jsonObject[@"adUnitId"];
@@ -113,6 +145,17 @@
     }
 }
 
+/*!
+	Parse the size of banner advertisement.
+	
+	@param jObject
+		The json data.
+	@param key
+		The key name.
+		
+	@return
+		The Admob AdSize value.
+*/	
 + (GADAdSize) parseJSonBannerSize:(NSDictionary *)jObject key:(NSString *) key {
     NSString *s = jObject[key];
     if (s != nil) {
@@ -131,6 +174,9 @@
     return kGADAdSizeSmartBannerPortrait;
 }
 
+/*!
+	Load or reload the showing banner advertisement.
+*/
 - (void) loadAdView:(NSDictionary *)jsonObject {
     @try {
         NSLog(@"{admob} Reloading adview");
@@ -142,6 +188,9 @@
     }
 }
 
+/*!
+	Hide the banner advertisement.
+*/
 - (void) hideAdView:(NSDictionary *)jsonObject {
     @try {
         NSLog(@"{admob} Hiding adview");
@@ -153,6 +202,9 @@
     }
 }
 
+/*!
+	Called when the banner advertisement is loaded.
+*/
 - (void)adViewDidReceiveAd:(GADBannerView *)bannerView {
     [UIView beginAnimations:@"BannerSlide" context:nil];
     
@@ -183,6 +235,9 @@
     [UIView commitAnimations];
 }
 
+/*!
+	Called when the banner advertisement fails to load.
+*/
 - (void)adView:(GADBannerView *)bannerView didFailToReceiveAdWithError:(GADRequestError *)error {
     NSLog(@"adView:didFailToReceiveAdWithError:%@", [error localizedDescription]);
 }
