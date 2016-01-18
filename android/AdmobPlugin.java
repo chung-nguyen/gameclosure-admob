@@ -42,15 +42,48 @@ public class AdmobPlugin implements IPlugin {
 	
 	// Interstitial advertisement object
 	private InterstitialAd mInterstitial = null;
-	private boolean mInterstitialHasError = false;
 	
 	// Banner advertisement object
 	private AdView mAdView = null;
 	private int mAdViewGravity = Gravity.CENTER;
     private Object mAdViewLock = new Object();
     private boolean mIsAdViewVisibile = false;
-    private boolean mShowAdView = false;
-	private boolean mAdViewHasError = false;
+    
+    public class AdmobInterstitialAdAvailable extends com.tealeaf.event.Event {
+        public AdmobInterstitialAdAvailable() {
+            super("AdmobInterstitialAdAvailable");
+        }
+    }
+
+    public class AdmobInterstitialAdNotAvailable extends com.tealeaf.event.Event {
+        public AdmobInterstitialAdNotAvailable() {
+            super("AdmobInterstitialAdNotAvailable");
+        }
+    }
+
+    public class AdmobInterstitialAdDismissed extends com.tealeaf.event.Event {
+        public AdmobInterstitialAdDismissed () {
+            super("AdmobInterstitialAdDismissed");
+        }
+    }
+    
+    public class AdmobBannerAdAvailable extends com.tealeaf.event.Event {
+        public AdmobBannerAdAvailable() {
+            super("AdmobBannerAdAvailable");
+        }
+    }
+
+    public class AdmobBannerAdNotAvailable extends com.tealeaf.event.Event {
+        public AdmobBannerAdNotAvailable() {
+            super("AdmobBannerAdNotAvailable");
+        }
+    }
+
+    public class AdmobBannerAdDismissed extends com.tealeaf.event.Event {
+        public AdmobBannerAdDismissed () {
+            super("AdmobBannerAdDismissed");
+        }
+    }
 	
 	/** 
      * Class constructor.
@@ -100,15 +133,6 @@ public class AdmobPlugin implements IPlugin {
 	public void onBackPressed() {}
 	
 	/**
-	 * Check if interstitial advertisement loading has error.
-	 *
-	 * @return The error result.
-	 */	
-	public boolean hasInterstitialError() {
-		return mInterstitialHasError;
-	}
-	
-	/**
 	 * Show the interstitial advertisement.
 	 *
 	 * @param jsonData Not used.
@@ -134,8 +158,7 @@ public class AdmobPlugin implements IPlugin {
 	 */		
 	public void loadInterstitial(String jsonData) {
 		logger.log(TAG, "Creating interstitial view");
-		mInterstitialHasError = false;
-        
+		
 		JSONObject jObject = null;
 		try {
 			jObject = new JSONObject(jsonData);
@@ -151,27 +174,27 @@ public class AdmobPlugin implements IPlugin {
 					if (mInterstitial == null) {
 						
 						mInterstitial = new InterstitialAd(mActivity);
-       					mInterstitial.setAdUnitId(adUnitId);
 						   
 						mInterstitial.setAdListener(new AdListener() {
 							@Override
 							public void onAdClosed() {
-								AdRequest adRequest = new AdRequest.Builder()
-										.addTestDevice(AdRequest.DEVICE_ID_EMULATOR)
-										.build();
-						
-								mInterstitial.loadAd(adRequest);
+								EventQueue.pushEvent(new AdmobInterstitialAdDismissed());
 							}
 							
 							@Override
-							public void onAdFailedToLoad(int errorCode) {
-								logger.log(TAG, "no interstitial ad loaded");
-								
-								mInterstitialHasError = true;
+							public void onAdFailedToLoad(int errorCode) {								
+                                EventQueue.pushEvent(new AdmobInterstitialAdNotAvailable());
+							}
+                            
+                            @Override
+							public void onAdLoaded() {
+                                EventQueue.pushEvent(new AdmobInterstitialAdAvailable());
 							}
 						});
 					}
 				
+     				mInterstitial.setAdUnitId(adUnitId);
+     				
 					AdRequest adRequest = new AdRequest.Builder()
 							.addTestDevice(AdRequest.DEVICE_ID_EMULATOR)
 							.build();
@@ -181,22 +204,23 @@ public class AdmobPlugin implements IPlugin {
 				} catch (Exception ex) {
 					logger.log(TAG, ex.toString());
 					mInterstitial = null;
+                    
+                    EventQueue.pushEvent(new AdmobInterstitialAdNotAvailable());
 				}
 			}
 		});
 	}
 
 	/**
-	 * Show the banner advertisement.
+	 * Create the banner advertisement.
 	 *
 	 * @param jsonData Options for the advertisement.
 	 *
 	 * @see #parseJSonBannerSize(JSONObject, String)
 	 * @see #parseJsonGravity(JSONObject, String)
 	 */	
-	public void showAdView(String jsonData) {
-		logger.log(TAG, "Creating ad view");
-        mShowAdView = true;
+	public void createAdView(String jsonData) {
+		logger.log(TAG, "Creating ad view");        
 
 		JSONObject jObject = null;
 		try {
@@ -207,67 +231,59 @@ public class AdmobPlugin implements IPlugin {
 
 		final String adUnitId = getJsonString(jObject, "adUnitId");
 		final AdSize adSize = parseJSonBannerSize(jObject, "adSize");
-		final int horizontalGravity = parseJsonGravity(jObject, "horizontalAlign");
-		final int verticalGravity = parseJsonGravity(jObject, "verticalAlign");
-		final boolean isReloading = getJsonBoolean(jObject, "reload");
-
-		mAdViewGravity = horizontalGravity | verticalGravity;
 
 		mActivity.runOnUiThread(new Runnable() {
 			public void run() {
-				if (mAdView == null) {
-					try {
-						mAdView = new AdView(mActivity);
-						mAdView.setAdSize(adSize);
-						mAdView.setAdUnitId(adUnitId);
-
-						loadAdView();
-
-						AdListener adListener = new AdListener() {@Override
-							public void onAdLoaded() {
-								logger.log(TAG, "ad loaded");
-								logger.log(TAG, "Trying to show ad");
+                try {
+                    if (mAdView == null) {
+                        mAdView = new AdView(mActivity);    
+                        
+                        AdListener adListener = new AdListener() {@Override
+                            public void onAdLoaded() {
+                                logger.log(TAG, "ad loaded");        
                                 
-                                if (mShowAdView) {
-								    addAdViewToRoot();
-                                }
-							}
+                                EventQueue.pushEvent(new AdmobBannerAdAvailable());               
+                            }
 
-							@Override
-							public void onAdFailedToLoad(int errorCode) {
-								logger.log(TAG, "no ad loaded");
-								//logger.log(TAG, getErrorReason(errorCode));
-								mAdViewHasError = true;
-							}
+                            @Override
+                            public void onAdFailedToLoad(int errorCode) {
+                                logger.log(TAG, "no ad loaded");
+                                //logger.log(TAG, getErrorReason(errorCode));
+                                
+                                EventQueue.pushEvent(new AdmobBannerAdNotAvailable());
+                            }
 
-							@Override
-							public void onAdClosed() {
-								logger.log(TAG, "ad killed");
-							}
+                            @Override
+                            public void onAdClosed() {
+                                logger.log(TAG, "ad killed");
+                                
+                                EventQueue.pushEvent(new AdmobBannerAdDismissed());
+                            }
 
-							@Override
-							public void onAdLeftApplication() {
-								// Ad left application
-							}
+                            @Override
+                            public void onAdLeftApplication() {
+                                // Ad left application
+                            }
 
-							@Override
-							public void onAdOpened() {
-								// Ad opened
-							}
-						};
-						mAdView.setAdListener(adListener);
+                            @Override
+                            public void onAdOpened() {
+                                // Ad opened
+                            }
+                        };
+                        
+                        mAdView.setAdListener(adListener);
+                    }
+                    
+                    mAdView.setAdSize(adSize);
+                    mAdView.setAdUnitId(adUnitId);                    
+                    loadAdView();
 
-					} catch (Exception ex) {
-						logger.log(TAG, ex.toString());
-						mAdView = null;
-					}
-				} else {
-					if (isReloading) {
-						loadAdView();
-					} else {
-						addAdViewToRoot();
-					}
-				}
+                } catch (Exception ex) {
+                    logger.log(TAG, ex.toString());
+                    mAdView = null;
+                    
+                    EventQueue.pushEvent(new AdmobBannerAdNotAvailable());
+                }
 			}
 		});
 	}
@@ -276,7 +292,6 @@ public class AdmobPlugin implements IPlugin {
 	 * Add the banner advertisement view to the root view of the devkit application.
 	 */	
 	private void addAdViewToRoot() {
-
         synchronized (mAdViewLock) {
             if (!mIsAdViewVisibile) {            
                 mIsAdViewVisibile = true;
@@ -313,7 +328,7 @@ public class AdmobPlugin implements IPlugin {
 	 *
 	 * @param jsonData Not used.
 	 */	
-	public void loadAdView(String jsonData) {
+	public void reloadAdView(String jsonData) {
 		mActivity.runOnUiThread(new Runnable() {
 			public void run() {
 				loadAdView();
@@ -325,13 +340,38 @@ public class AdmobPlugin implements IPlugin {
 	 * Load the banner advertisement.	 
 	 */	
 	private void loadAdView() {
-		if (mAdView != null) {
-			mAdViewHasError = false;
-			
+		if (mAdView != null) {			
 			AdRequest adRequest = new AdRequest.Builder().addTestDevice(AdRequest.DEVICE_ID_EMULATOR).build();
 			mAdView.loadAd(adRequest);
 		}
 	}
+    
+    /**
+	 * Show the banner advertisement.
+	 *
+	 * @param jsonData Not used.
+	 */	
+    public void showAdView(String jsonData) {
+		JSONObject jObject = null;
+		try {
+			jObject = new JSONObject(jsonData);
+		} catch (Exception ex) {
+			logger.log(TAG, ex.toString());
+		}
+                
+        final int horizontalGravity = parseJsonGravity(jObject, "horizontalAlign");
+		final int verticalGravity = parseJsonGravity(jObject, "verticalAlign");
+		
+		mAdViewGravity = horizontalGravity | verticalGravity;
+        
+        if (mAdView != null) {
+			mActivity.runOnUiThread(new Runnable() {
+				public void run() {
+					addAdViewToRoot();
+				}
+			});
+		}
+    }
 
 	/**
 	 * Hide the banner advertisement.
@@ -339,8 +379,6 @@ public class AdmobPlugin implements IPlugin {
 	 * @param jsonData Not used.
 	 */	
 	public void hideAdView(String jsonData) {
-        mShowAdView = false;
-        
 		if (mAdView != null) {
 			mActivity.runOnUiThread(new Runnable() {
 				public void run() {

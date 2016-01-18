@@ -1,3 +1,4 @@
+#import "PluginManager.h"
 #import "Admob.h"
 
 @implementation AdmobPlugin
@@ -61,17 +62,15 @@
 */	
 - (void) loadInterstitial:(NSDictionary *)jsonObject {
     @try {
+        NSLog(@"{admob} Creating interstitial.");
         NSString *adUnitId = jsonObject[@"adUnitId"];
         if (adUnitId == nil)
         {
             adUnitId = @"";
         }
         
-        if (self.interstitial == nil) 
-        {
-            self.interstitial = [[GADInterstitial alloc] initWithAdUnitID:adUnitId];
-            self.interstitial.delegate = self;
-        }
+        self.interstitial = [[GADInterstitial alloc] initWithAdUnitID:adUnitId];
+        self.interstitial.delegate = self;
         
         GADRequest *request = [GADRequest request];
         request.testDevices = @[kGADSimulatorID];
@@ -80,6 +79,8 @@
     @catch (NSException *exception) {
         NSLog(@"{admob} Failure during interstitial: %@", exception);
         self.interstitial = nil;
+        
+        [[PluginManager get] dispatchJSEvent:[NSDictionary dictionaryWithObjectsAndKeys:@"AdmobInterstitialAdNotAvailable",@"name", nil]];
     }
 }
 
@@ -87,39 +88,36 @@
 	Called when an interstitial advertisement request failed.
 */
 - (void)interstitial:(GADInterstitial *)ad didFailToReceiveAdWithError:(GADRequestError *)error {
-    NSLog(@"interstitialDidFailToReceiveAdWithError: %@", [error localizedDescription]);
+    [[PluginManager get] dispatchJSEvent:[NSDictionary dictionaryWithObjectsAndKeys:@"AdmobInterstitialAdNotAvailable",@"name", nil]];
+}
+
+/*!
+	Called when an interstitial ad request succeeded.
+*/
+- (void)interstitialDidReceiveAd:(GADInterstitial *)interstitial {
+    [[PluginManager get] dispatchJSEvent:[NSDictionary dictionaryWithObjectsAndKeys:@"AdmobInterstitialAdAvailable",@"name", nil]];
 }
 
 /*!
 	Called when an interstitial advertisement dismiss the screen.
 */
 - (void)interstitialDidDismissScreen:(GADInterstitial *)interstitial {
-    GADInterstitial *newInterstitial = [[GADInterstitial alloc] initWithAdUnitID:self.interstitial.adUnitID];
-    newInterstitial.delegate = self;
-    
-    GADRequest *request = [GADRequest request];
-    request.testDevices = @[kGADSimulatorID];
-    [newInterstitial loadRequest:request];
-    
-    self.interstitial = newInterstitial;
+    [[PluginManager get] dispatchJSEvent:[NSDictionary dictionaryWithObjectsAndKeys:@"AdmobInterstitialAdDismissed",@"name", nil]];
 }
 
 /*!
-	Show the banner advertisement.
+	Create the banner advertisement.
 	
 	@param jsonObject
 		The advertisement options.
 */	
-- (void) showAdView:(NSDictionary *)jsonObject {
+- (void) createAdView:(NSDictionary *)jsonObject {
     @try {
         NSString *adUnitId = jsonObject[@"adUnitId"];
         if (adUnitId == nil)
         {
             adUnitId = @"";
         }
-        
-        self.bannerHorizontalAlign = jsonObject[@"horizontalAlign"];
-        self.bannerVerticalAlign = jsonObject[@"verticalAlign"];
         
         NSLog(@"{admob} Showing Adview: %@", adUnitId);
         
@@ -128,20 +126,68 @@
             self.bannerView = [[GADBannerView alloc] initWithAdSize: [AdmobPlugin parseJSonBannerSize:jsonObject key: @"adSize"]];
             self.bannerView.delegate = self;
             
-            [self.appDelegate.tealeafViewController.view addSubview:self.bannerView];
-            
-            self.bannerView.adUnitID = adUnitId;
-            self.bannerView.rootViewController = self.appDelegate.tealeafViewController;
-            [self.bannerView loadRequest: [GADRequest request]];
+            [self.appDelegate.tealeafViewController.view addSubview:self.bannerView];            
+            self.bannerView.rootViewController = self.appDelegate.tealeafViewController;    
         }
         else
         {
-            [self.bannerView setHidden: NO];
+            self.bannerView.adUnitID = adUnitId;
+            self.bannerView.adSize = [AdmobPlugin parseJSonBannerSize:jsonObject key: @"adSize"];
         }
+        
+        self.bannerView.adUnitID = adUnitId;
+        [self.bannerView loadRequest: [GADRequest request]];
     }
     @catch (NSException *exception) {
         NSLog(@"{admob} Failure during ad view: %@", exception);
         self.bannerView = nil;
+        
+        [[PluginManager get] dispatchJSEvent:[NSDictionary dictionaryWithObjectsAndKeys:@"AdmobBannerAdNotAvailable",@"name", nil]];
+    }
+}
+
+/*!
+    Show the banner advertisement.
+*/
+- (void) showAdView:(NSDictionary *)jsonObject {
+    @try {
+        NSLog(@"{admob} Showing adview");
+        
+        GADBannerView *bannerView = [self bannerView];
+                
+        self.bannerHorizontalAlign = jsonObject[@"horizontalAlign"];
+        self.bannerVerticalAlign = jsonObject[@"verticalAlign"];
+        
+        [UIView beginAnimations:@"BannerSlide" context:nil];
+    
+        CGFloat viewWidth = self.appDelegate.tealeafViewController.view.frame.size.width;
+        CGFloat viewHeight = self.appDelegate.tealeafViewController.view.frame.size.height;
+        
+        CGFloat bannerWidth = bannerView.frame.size.width;
+        CGFloat bannerHeight = bannerView.frame.size.height;
+        
+        CGFloat x = 0.0f;
+        CGFloat y = 0.0f;
+        
+        if ([self.bannerHorizontalAlign isEqualToString:@"center"]) {
+            x = (viewWidth - bannerWidth) / 2;
+
+        } else if ([self.bannerHorizontalAlign isEqualToString:@"right"]) {
+            x = (viewWidth - bannerWidth);
+        }
+        
+        if ([self.bannerVerticalAlign isEqualToString:@"middle"]) {
+            y = (viewHeight - bannerHeight) / 2;
+            
+        } else if ([self.bannerVerticalAlign isEqualToString:@"bottom"]) {
+            y = viewHeight - bannerHeight;
+        }
+        
+        bannerView.frame = CGRectMake(x, y, bannerWidth, bannerHeight);
+        [UIView commitAnimations];
+    }
+    @catch (NSException *exception) {
+        NSLog(@"{moPub} Failure during interstitial: %@", exception);
     }
 }
 
@@ -175,9 +221,9 @@
 }
 
 /*!
-	Load or reload the showing banner advertisement.
+	Reload the showing banner advertisement.
 */
-- (void) loadAdView:(NSDictionary *)jsonObject {
+- (void) reloadAdView:(NSDictionary *)jsonObject {
     @try {
         NSLog(@"{admob} Reloading adview");
         
@@ -206,33 +252,14 @@
 	Called when the banner advertisement is loaded.
 */
 - (void)adViewDidReceiveAd:(GADBannerView *)bannerView {
-    [UIView beginAnimations:@"BannerSlide" context:nil];
-    
-    CGFloat viewWidth = self.appDelegate.tealeafViewController.view.frame.size.width;
-    CGFloat viewHeight = self.appDelegate.tealeafViewController.view.frame.size.height;
-    
-    CGFloat bannerWidth = bannerView.frame.size.width;
-    CGFloat bannerHeight = bannerView.frame.size.height;
-    
-    CGFloat x = 0.0f;
-    CGFloat y = 0.0f;
-    
-    if ([self.bannerHorizontalAlign isEqualToString:@"center"]) {
-        x = (viewWidth - bannerWidth) / 2;
+    [[PluginManager get] dispatchJSEvent:[NSDictionary dictionaryWithObjectsAndKeys:@"AdmobBannerAdAvailable",@"name", nil]];
+}
 
-    } else if ([self.bannerHorizontalAlign isEqualToString:@"right"]) {
-        x = (viewWidth - bannerWidth);
-    }
-    
-    if ([self.bannerVerticalAlign isEqualToString:@"middle"]) {
-        y = (viewHeight - bannerHeight) / 2;
-        
-    } else if ([self.bannerVerticalAlign isEqualToString:@"bottom"]) {
-        y = viewHeight - bannerHeight;
-    }
-    
-    bannerView.frame = CGRectMake(x, y, bannerWidth, bannerHeight);
-    [UIView commitAnimations];
+/*!
+	Tells the delegate that the full screen view will be dismissed.
+*/
+- (void)adViewWillDismissScreen:(GADBannerView *)adView {
+    [[PluginManager get] dispatchJSEvent:[NSDictionary dictionaryWithObjectsAndKeys:@"AdmobBannerAdDismissed",@"name", nil]];
 }
 
 /*!
@@ -240,6 +267,8 @@
 */
 - (void)adView:(GADBannerView *)bannerView didFailToReceiveAdWithError:(GADRequestError *)error {
     NSLog(@"adView:didFailToReceiveAdWithError:%@", [error localizedDescription]);
+    
+    [[PluginManager get] dispatchJSEvent:[NSDictionary dictionaryWithObjectsAndKeys:@"AdmobBannerAdNotAvailable",@"name", nil]];
 }
 
 @end
